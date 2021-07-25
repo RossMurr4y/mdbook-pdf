@@ -1,0 +1,10 @@
+[package]
+name = "mdbook-pdf"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+mdbook = "0.4.10"
+pandoc = "0.8.4"
+serde = "1.0.126"
+serde_derive = "1.0.126"
