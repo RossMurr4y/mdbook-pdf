@@ -204,6 +204,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56899898ce76aaf4a0f24d914c97ea6ed976d42fec6ad33fcbb0a1103e07b2b0"
 
 [[package]]
+name = "either"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+
+[[package]]
 name = "elasticlunr-rs"
 version = "2.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,6 +683,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -800,8 +815,10 @@ name = "mdbook-pdf"
 version = "0.1.0"
 dependencies = [
  "mdbook",
+ "pandoc",
  "serde",
  "serde_derive",
+ "toml",
 ]
 
 [[package]]
@@ -943,6 +960,15 @@ checksum = "dcea7a30d6b81a2423cc59c43554880feff7b57d12916f231a79f8d6d9470201"
 dependencies = [
  "pathdiff",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "pandoc"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84060e442eb742cdba4038302c9924aecd67434073b9785dd9a6cec8a3f4065a"
+dependencies = [
+ "itertools",
 ]
 
 [[package]]
