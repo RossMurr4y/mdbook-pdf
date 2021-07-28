@@ -12,7 +12,6 @@ extern crate serde_derive;
 
 /// The configuration object for the PDF backend, as represented in `book.toml`.
 #[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(default, rename_all = "kebab-case")]
 pub struct PdfConfig {
     pub pdf_name: Option<String>,
 }
@@ -47,11 +46,15 @@ impl PdfConfig {
 
         // set output filename
         let mut filename: std::path::PathBuf = std::path::PathBuf::new();
-        if let Some(name) = self.pdf_name {
-            filename.push(name);
-        } else {
-            // default to setting the filename based on the book title
-            filename.push(context.config.book.title.unwrap());
+
+        match self.pdf_name {
+            Some(name) => {
+                filename.push(name);
+            }
+            None => {
+                    // default to setting the filename based on the book title
+                    filename.push(context.config.book.title.unwrap());
+                }
         }
         filename.set_extension("pdf");
         pandoc.set_output(pandoc::OutputKind::File(filename));
