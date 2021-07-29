@@ -37,7 +37,12 @@ RUN cargo install mdbook-katex --vers ${MDBOOK_KATEX_VERSION} --verbose
 
 FROM pandoc/ubuntu-latex AS mdbook-pdf
 COPY --from=builder /usr/local/cargo/bin/mdbook* /usr/bin/
-RUN apt-get update --allow-insecure-repositories && apt-get install --no-install-recommends -y ca-certificates graphviz && rm -rf /var/cache/apt/lists
+RUN apt-get update --allow-insecure-repositories \
+    && apt-get install --no-install-recommends -y \
+    ca-certificates \
+    graphviz \
+    plantuml \
+    && rm -rf /var/cache/apt/lists
 SHELL ["/bin/ash"]
 WORKDIR /book
 ENTRYPOINT [ "/usr/bin/mdbook" ]
