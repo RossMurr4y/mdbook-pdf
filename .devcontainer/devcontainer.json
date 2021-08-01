@@ -1,0 +1,30 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.187.0/containers/docker-existing-dockerfile
+{
+	"name": "vscode_mdbookpdf",
+	"forwardPorts": [3000, 3001],
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"containerEnv" : {},
+	"settings": { 
+		"lldb.executable": "/usr/bin/lldb",
+		// VS Code don't watch files under ./target
+		"files.watcherExclude": {
+			"**/target/**": true
+		}
+	},
+	"mounts": [
+		// volume for test mdbooks
+		"source=docs,target=/usr/src/docs,type=volume"
+	],
+	"extensions": [
+		"ms-azuretools.vscode-docker",
+		"vadimcn.vscode-lldb",
+		"bungcip.better-toml",
+		"eamodio.gitlens",
+		"jebbs.plantuml",
+		"matklad.rust-analyzer",
+		"mutantdino.resourcemonitor"
+	]
+}
