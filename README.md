@@ -4,7 +4,60 @@ A PDF backend for [mdBook](https://rust-lang.github.io/mdBook/)
 
 ## Usage
 
-- install [TeXLive](https://www.tug.org/texlive/)
+Update your `book.toml` with the pdf backend.
+
+If you've only had the default html backend until now, make sure you specify it now so that both backends are run.
+
+```toml
+[book]
+title = "Example Book"
+authors = ["Your Name"]
+
+[output.html]
+
+[output.pdf]
+```
+
+Build your book to output your PDF alongside the other backend outputs in `book/pdf`
+
+```terminal
+mdbook build
+```
+
+## Configuration
+
+Just specifying the PDF output type is sufficient configuration.
+
+The below example shows the full configuration options with defaults.
+
+```toml
+...
+
+[output.pdf]
+
+[output.pdf.pandoc]
+output_name: ''
+engine = "xelatex"
+```
+
+### output.pdf
+
+#### output_name
+
+The name of the output PDF document. Defaults to the name of your book when not provided.
+
+### output.pdf.pandoc
+#### engine
+
+The PDF engine to use to perform the translation to PDF. Default is to use `xelatex` which must be installed (available within the docker container).
+
+## Installation
+
+> `mdbook-pdf` is currently in heavy development and is not yet available with cargo.
+> Recommended use for now is with [Docker](#docker).
+
+- install [XeLatex](http://xetex.sourceforge.net) (for usage with XeLatex - default)
+- install [TeXLive](https://www.tug.org/texlive/) (for usage with pdflatex)
 - install [pandoc](https://pandoc.org/installing.html)
 
 Install `mdbook-pdf` binary from local clone
