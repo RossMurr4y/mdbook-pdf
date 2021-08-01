@@ -40,9 +40,10 @@ COPY --from=builder /usr/local/cargo/bin/mdbook* /usr/bin/
 RUN apt-get update --allow-insecure-repositories \
     && apt-get install --no-install-recommends -y \
     ca-certificates \
+    texlive-xetex \
     graphviz \
     plantuml \
     && rm -rf /var/cache/apt/lists
-SHELL ["/bin/ash"]
+SHELL ["/bin/bash"]
 WORKDIR /book
 ENTRYPOINT [ "/usr/bin/mdbook" ]
