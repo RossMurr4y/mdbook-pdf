@@ -36,8 +36,9 @@ The below example shows the full configuration options with defaults.
 [output.pdf]
 
 [output.pdf.pandoc]
-output_name: ''
+output_name = "<Name of Book>"
 engine = "xelatex"
+main_font = "Liberation Serif"
 ```
 
 ### output.pdf
@@ -50,6 +51,19 @@ The name of the output PDF document. Defaults to the name of your book when not 
 #### engine
 
 The PDF engine to use to perform the translation to PDF. Default is to use `xelatex` which must be installed (available within the docker container).
+
+#### main_font
+
+This is the primary font used by the pdf-engine.
+
+Available for the following engines:
+
+- pdflatex
+- lualatex
+- xelatex
+- context
+
+Unlike when using Pandoc directly, this setting is used for all of the pdf-engines for which it is available. This consolidation of configuration was done so as to make the module as easy to pick up and use as possible without needing to understand the inner-workings of Pandoc and latex.
 
 ## Installation
 

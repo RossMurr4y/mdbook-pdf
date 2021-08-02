@@ -11,7 +11,11 @@ extern crate serde_derive;
 /// The configuration object for the PDF backend, as represented in `book.toml`.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PdfConfig {
+    /// The filename to provide the output.
+    /// Filetype not required.
     pub output_name: Option<String>,
+
+    /// Optional configuration settings to be passed to Pandoc.
     pub pandoc: Option<PandocConfig>,
 }
 
@@ -21,6 +25,14 @@ pub struct PandocConfig {
     /// The PDF Engine to pass to Pandoc.
     /// -–pdf-engine=[engine]
     pub engine: Option<PdfEngineType>,
+
+    /// The primary font to be used in your file output.
+    /// Rather than support a wide range of variable names based on the pdf-engine
+    /// chosen, mdbook-pdf attempts to standardise these variables and will adjust
+    /// for you.
+    /// For example if you are familiar with pdflatex, then this option controls the
+    /// variable for `fontfamily`, whilst in xelatex it controls `mainfont`.
+    pub main_font: Option<String>,
 }
 
 impl<'a> PandocConfig {
@@ -38,6 +50,25 @@ impl<'a> PandocConfig {
         };
         pandoc.add_option(PandocOption::PdfEngine(engine_path))
     }
+
+    pub fn set_main_font(&self, pandoc: &'a mut Pandoc) -> &'a Pandoc {
+        let engine_config = self.engine.as_ref();
+        let var_key  = match engine_config.unwrap_or_default() {
+            PdfEngineType::Pdflatex => &"fontfamily",
+            PdfEngineType::Lualatex => &"mainfont",
+            PdfEngineType::Xelatex => &"mainfont",
+            PdfEngineType::Context => &"mainfont",
+            _ => {
+                println!("WARNING: main_font configured, but engine type {:#?} does not support this option.", engine_config);
+                return pandoc
+            }
+        };
+        let font_config = match self.main_font.as_ref() {
+            Some(font) => font,
+            None => "Liberation Serif",
+        };
+        pandoc.set_variable(var_key, font_config)
+    }
 }
 
 impl Default for &PdfEngineType {
@@ -49,7 +80,8 @@ impl Default for &PdfEngineType {
 impl Default for PandocConfig {
     fn default() -> Self {
         Self {
-            engine: Some(PdfEngineType::Xelatex)
+            engine: Some(PdfEngineType::Xelatex),
+            main_font: Some((&"Liberation Serif").to_string()),
         }
     }
 }
@@ -72,7 +104,7 @@ impl PdfConfig {
     pub fn from_context(ctx: &RenderContext) -> Option<PdfConfig> {
         match ctx.config.get_deserialized_opt("output.pdf") {
             Ok(Some(cfg)) => Some(cfg),
-            Ok(None) => None,
+            Ok(None) => Some(PdfConfig::default()),
             Err(e) => {
                 mdbook::utils::log_backtrace(&e);
                 None
@@ -90,11 +122,11 @@ impl PdfConfig {
         let mut pandoc= Pandoc::new();
         let pandoc_config = self.pandoc.unwrap_or_default();
         pandoc_config.set_engine(&mut pandoc);
+        pandoc_config.set_main_font(&mut pandoc);
 
         pandoc.set_input_format(pandoc::InputFormat::Commonmark, input_ext);
         pandoc.set_output_format(pandoc::OutputFormat::Latex, output_ext);
 
-        pandoc.set_variable("monofont", "Liberation Serif");
         pandoc.set_show_cmdline(true);
         //pandoc.set_doc_class(pandoc::DocumentClass::Report);
 
