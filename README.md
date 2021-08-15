@@ -98,8 +98,10 @@ docker pull rossmurr4y/mdbook-pdf
 
 ### Build
 
+Builds should be performed with `buildx` to ensure compatability with your architecture.
+
 ```terminal
-docker build .
+docker buildx build .
 ```
 
 ### Tag
