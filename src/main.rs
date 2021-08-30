@@ -2,171 +2,139 @@ use std::io;
 use mdbook::{BookItem};
 use mdbook::renderer::RenderContext;
 use std::path::PathBuf;
-use pandoc::{Pandoc, PandocOption};
+use pandoc::{
+    InputKind,
+    InputFormat::Commonmark,
+    MarkdownExtension,
+    OutputKind::File,
+    OutputFormat::Latex,
+    Pandoc,
+    PandocOption
+};
 
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-/// The configuration object for the PDF backend, as represented in `book.toml`.
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct PdfConfig {
-    /// The filename to provide the output.
-    /// Filetype not required.
-    pub output_name: Option<String>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Pdf {
+    pub name: String,
+    pub engine: PathBuf,
+    pub format: PdfFormat,
+    // Content of the PDF.
+    pub content: String,
+}
 
-    /// Optional configuration settings to be passed to Pandoc.
-    pub pandoc: Option<PandocConfig>,
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfBuilder {
+    pub name: Option<String>,
+    pub engine: Option<String>,
+    pub format: Option<PdfFormat>,
+}
+
+impl PdfBuilder {
+
+    fn default(context: &RenderContext) -> PdfBuilder {
+        PdfBuilder {
+            name: context.config.book.title.clone(),
+            engine: Some("xelatex".to_string()),
+            format: Some(PdfFormat::default()),
+        }
+    }
+
+    fn apply_input_context(&mut self, ctx: &RenderContext) -> Self {
+        match ctx.config.get_deserialized_opt("output.pdf".to_string()).unwrap() {
+            Some(input) => {
+                Self {
+                    ..input
+                }
+            }
+            _ => {
+                    println!("WARN: PDF configuration found in book.toml is invalid. Using default settings.");
+                    PdfBuilder::default(ctx)
+                }
+        }
+    }
+
+    // completes the builder and instantiates the Pdf configuration.
+    fn build(self, content: String) -> Pdf {
+        Pdf {
+            name: self.name.unwrap(),
+            engine: PathBuf::from(self.engine.unwrap()),
+            format: self.format.unwrap_or(Default::default()),
+            content: content,
+        }
+    }
+}
+
+impl Pdf {
+    // builder for the Pdf struct
+    pub fn new(context: &RenderContext) -> PdfBuilder {
+        PdfBuilder::default(context).apply_input_context(context)
+    }
+
+    // processes each of the inputs
+    pub fn evaluate_pdf_input(self) -> Pandoc {
+
+        // Set the output name and extension
+        let mut filename: PathBuf = PathBuf::new();
+        filename.push(self.name);
+        filename.set_extension("pdf".to_string());
+
+        // set the Commonmark extensions
+        let mut input_ext: Vec<MarkdownExtension> = Vec::new();
+
+
+        // set the Latex extensions
+        let mut output_ext: Vec<MarkdownExtension> = Vec::new();
+
+        // construct the call to pandoc
+        let mut pandoc = Pandoc::new();
+        pandoc
+            .set_input_format(Commonmark, input_ext)
+            .set_input(InputKind::Pipe(self.content))
+            .set_output(File(filename))
+            .set_output_format(Latex, output_ext)
+            .add_option(PandocOption::PdfEngine(self.engine));
+
+        pandoc
+    }    
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PandocConfig {
-
-    /// The PDF Engine to pass to Pandoc.
-    /// -–pdf-engine=[engine]
-    pub engine: Option<PdfEngineType>,
-
-    /// The primary font to be used in your file output.
-    /// Rather than support a wide range of variable names based on the pdf-engine
-    /// chosen, mdbook-pdf attempts to standardise these variables and will adjust
-    /// for you.
-    /// For example if you are familiar with pdflatex, then this option controls the
-    /// variable for `fontfamily`, whilst in xelatex it controls `mainfont`.
-    pub main_font: Option<String>,
+pub struct PdfFormat {
+    pub font: String,
 }
-
-impl<'a> PandocConfig {
-    pub fn set_engine(&self, pandoc: &'a mut Pandoc) -> &'a Pandoc {
-        let engine_config = self.engine.as_ref();
-        let engine_path: PathBuf = match engine_config.unwrap_or_default() {
-            PdfEngineType::Context => PathBuf::from("context".to_string()),
-            PdfEngineType::Lualatex => PathBuf::from("lualatex".to_string()),
-            PdfEngineType::Pdflatex => PathBuf::from("pdflatex".to_string()),
-            PdfEngineType::Pdfroff => PathBuf::from("pdfroff".to_string()),
-            PdfEngineType::Prince => PathBuf::from("prince".to_string()),
-            PdfEngineType::Weasyprint => PathBuf::from("weasyprint".to_string()),
-            PdfEngineType::Wkhtmltopdf => PathBuf::from("wkhtmltopdf".to_string()),
-            PdfEngineType::Xelatex => PathBuf::from("xelatex".to_string()),
-        };
-        pandoc.add_option(PandocOption::PdfEngine(engine_path))
-    }
-
-    pub fn set_main_font(&self, pandoc: &'a mut Pandoc) -> &'a Pandoc {
-        let engine_config = self.engine.as_ref();
-        let var_key  = match engine_config.unwrap_or_default() {
-            PdfEngineType::Pdflatex => &"fontfamily",
-            PdfEngineType::Lualatex => &"mainfont",
-            PdfEngineType::Xelatex => &"mainfont",
-            PdfEngineType::Context => &"mainfont",
-            _ => {
-                println!("WARNING: main_font configured, but engine type {:#?} does not support this option.", engine_config);
-                return pandoc
-            }
-        };
-        let font_config = match self.main_font.as_ref() {
-            Some(font) => font,
-            None => "Liberation Serif",
-        };
-        pandoc.set_variable(var_key, font_config)
-    }
-}
-
-impl Default for &PdfEngineType {
-    fn default() -> Self {
-        &PdfEngineType::Xelatex
-    }
-}
-
-impl Default for PandocConfig {
+impl Default for PdfFormat {
     fn default() -> Self {
         Self {
-            engine: Some(PdfEngineType::Xelatex),
-            main_font: Some((&"Liberation Serif").to_string()),
+            font: "DejaVue Sans".to_string(),
         }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum PdfEngineType {
-    Wkhtmltopdf,
-    Weasyprint,
-    Prince,
-    Pdflatex,
-    Lualatex,
-    Xelatex,
-    Pdfroff,
-    Context
-}
-
-impl PdfConfig {
-    
-    /// Load the PDF configuration data from the context provided to the backend by mdBook.
-    pub fn from_context(ctx: &RenderContext) -> Option<PdfConfig> {
-        match ctx.config.get_deserialized_opt("output.pdf") {
-            Ok(Some(cfg)) => Some(cfg),
-            Ok(None) => Some(PdfConfig::default()),
-            Err(e) => {
-                mdbook::utils::log_backtrace(&e);
-                None
-            }
-        }
-    }
-
-    /// Evaluate configuration properties and create a new RenderContext from them
-    fn evaluate_opts(self, context: RenderContext) -> Pandoc {
-
-        // initialising for later use
-        let input_ext = Vec::new();
-        let output_ext = Vec::new();
-
-        let mut pandoc= Pandoc::new();
-        let pandoc_config = self.pandoc.unwrap_or_default();
-        pandoc_config.set_engine(&mut pandoc);
-        pandoc_config.set_main_font(&mut pandoc);
-
-        pandoc.set_input_format(pandoc::InputFormat::Commonmark, input_ext);
-        pandoc.set_output_format(pandoc::OutputFormat::Latex, output_ext);
-
-        pandoc.set_show_cmdline(true);
-        //pandoc.set_doc_class(pandoc::DocumentClass::Report);
-
-        // initialize the content
-        let mut content = String::new();
-
-        // set output filename
-        let mut filename: PathBuf = PathBuf::new();
-
-        match self.output_name {
-            Some(name) => {
-                filename.push(name);
-            }
-            None => {
-                    // default to setting the filename based on the book title
-                    filename.push(context.config.book.title.unwrap());
-                }
-        }
-        filename.set_extension("pdf");
-        pandoc.set_output(pandoc::OutputKind::File(filename));
-
-        // set the output content
-        for item in context.book.iter() {
-            if let BookItem::Chapter(ref ch) = *item {
-                if let true = &ch.path.is_some() {
-                    content.push_str(&ch.content);
-                }
-            }
-        }
-    
-        // apply the content
-        pandoc.set_input(pandoc::InputKind::Pipe(content.to_string()));
-        pandoc
     }
 }
 
 fn main() {
     let mut stdin = io::stdin();
     let ctx = RenderContext::from_json(&mut stdin).unwrap();
-    let cfg = PdfConfig::from_context(&ctx);
-    let pandoc = cfg.unwrap().evaluate_opts(ctx);
+
+    // gather our content
+    let mut content = String::new();
+    for item in &mut ctx.book.iter() {
+        if let BookItem::Chapter(ref ch) = *item {
+            if let true = &ch.path.is_some() {
+                content.push_str(&ch.content);
+            }
+        }
+    }
+
+    // translate our book.toml config into the Pdf struct
+    let input: Pdf = Pdf::new(&ctx)
+        .build(content);
+
+    // process all the inputs
+    let pandoc = input.evaluate_pdf_input();
+
+    // give it all to pandoc
     pandoc.execute().unwrap();
 }
