@@ -101,24 +101,22 @@ docker pull rossmurr4y/mdbook-pdf
 Builds should be performed with `buildx` to ensure compatability with your architecture.
 
 ```terminal
+# single arch (for personal use locally)
 docker buildx build .
+
+# multi arch (for publishing)
+docker buildx build --platform linux/amd64,linux/arm64/v8 --tag rossmurr4y/mdbook-pdf:<tag> --push .
 ```
 
-### Tag
+If you receive an error regarding an unsupported docker driver, you can create an isolated cross-platform Builder instance. Run the following and then retry:
 
 ```terminal
-docker image tag <tag> rossmurr4y/mdbook-pdf:latest
-```
-
-### Publish
-
-```terminal
-docker push rossmurr4y/mdbook-pdf
+docker buildx create --use
 ```
 
 ### docker-compose
 
-The following `docker-compose.yml` example simplifies building/developing with `mdbook` & `mdbook-pdf`:
+The following `docker-compose.yml` demonstrates building/developing with `mdbook` & `mdbook-pdf`.
 
 ```yml
 version: '3'
@@ -131,7 +129,6 @@ services:
     tty: true
     ports:
       - 3000:3000
-      - 3001:3001
     volumes:
       - ${PWD}/docs:/book
     command:
