@@ -1,0 +1,33 @@
+[book]
+authors = ["Ross Murray"]
+language = "en"
+multilingual = false
+src = "src"
+title = "features-test"
+
+[output]
+
+[output.pdf]
+name = "OutputFileName"
+engine = "xelatex"      # pdf-engine
+
+[output.pdf.format]
+font = ""
+font_math = ""
+font_mono = ""
+font_sans = ""
+font_size = ""
+
+layout_footer = ""      # pandoc var: footertext
+layout_header = ""      # pandoc var: headertext
+layout_indent = ""      # pandoc var: indenting
+layout_list_figures = ""# pandoc var: lof (list-of-figures)
+layout_list_tables = "" # pandoc var: lot (list-of-tables)
+layout_toc = true       # pandoc var: toc
+layout_whitespace = ""  # pandoc var: whitespace
+layout_attach_source = "" # pandoc var: includesource
+
+link_style = ""         # pandoc var: linkstyle
+
+page_numbering = ""     # pandoc var: pagenumbering
+page_size = "A4"        # pandoc var: papersize
