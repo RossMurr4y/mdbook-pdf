@@ -1,3 +1,4 @@
+use std::result::Result;
 use std::io;
 use mdbook::{BookItem};
 use mdbook::renderer::RenderContext;
@@ -26,7 +27,7 @@ pub struct Pdf {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PdfBuilder {
     pub name: Option<String>,
     pub engine: Option<String>,
@@ -35,44 +36,54 @@ pub struct PdfBuilder {
 
 impl PdfBuilder {
 
-    fn default(context: &RenderContext) -> PdfBuilder {
+    pub fn new() -> Self {
         PdfBuilder {
-            name: context.config.book.title.clone(),
-            engine: Some("xelatex".to_string()),
-            format: Some(PdfFormat::default()),
+            name: None,
+            engine: None,
+            format: None,
         }
     }
 
-    fn apply_input_context(&mut self, ctx: &RenderContext) -> Self {
-        match ctx.config.get_deserialized_opt("output.pdf".to_string()).unwrap() {
+    fn with_input_context<'de>(&mut self, ctx: &RenderContext) -> &Self {
+        match ctx.config.get_deserialized_opt::<PdfBuilder, String>("output.pdf".to_string()).unwrap() {
             Some(input) => {
-                Self {
-                    ..input
-                }
-            }
-            _ => {
-                    println!("WARN: PDF configuration found in book.toml is invalid. Using default settings.");
-                    PdfBuilder::default(ctx)
-                }
+                if !input.name.is_none() { self.name = input.name };
+                if !input.engine.is_none() { self.engine = input.engine };
+                if !(Some(PdfFormat::default()) == input.format) { self.format = input.format };
+                self
+            },
+            None => self,
         }
+    }
+
+    fn with_name(&mut self, name: String) ->  &mut Self {
+        self.name = Some(name);
+        self
+    }
+
+    fn with_engine(&mut self, engine: String) -> &mut Self {
+        self.engine = Some(engine);
+        self
+    }
+
+    fn with_format(&mut self, format: PdfFormat) -> &mut Self {
+        self.format = Some(format);
+        self
     }
 
     // completes the builder and instantiates the Pdf configuration.
-    fn build(self, content: String) -> Pdf {
-        Pdf {
-            name: self.name.unwrap(),
-            engine: PathBuf::from(self.engine.unwrap()),
-            format: self.format.unwrap_or(Default::default()),
+    // Applies default values if they are not currently set.
+    fn build(self, content: String, context: RenderContext) -> Result<Pdf, mdbook::errors::Error> {
+        Ok(Pdf {
+            name: self.name.as_ref().unwrap_or(&context.config.book.title.unwrap()).to_string(),
+            engine: PathBuf::from(self.engine.as_ref().unwrap_or(&"xelatex".to_string())),
+            format: self.format.unwrap_or(PdfFormat::default()),
             content: content,
-        }
+        })
     }
 }
 
 impl Pdf {
-    // builder for the Pdf struct
-    pub fn new(context: &RenderContext) -> PdfBuilder {
-        PdfBuilder::default(context).apply_input_context(context)
-    }
 
     // processes each of the inputs
     pub fn evaluate_pdf_input(self) -> Pandoc {
@@ -102,14 +113,14 @@ impl Pdf {
     }    
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PdfFormat {
-    pub font: String,
+    pub font: Option<String>,
 }
 impl Default for PdfFormat {
     fn default() -> Self {
         Self {
-            font: "DejaVue Sans".to_string(),
+            font: Some("DejaVu Sans".to_string()),
         }
     }
 }
@@ -129,11 +140,12 @@ fn main() {
     }
 
     // translate our book.toml config into the Pdf struct
-    let input: Pdf = Pdf::new(&ctx)
-        .build(content);
+    let mut builder  = PdfBuilder::new();
+    builder.with_input_context(&ctx);
+    let input = builder.build(content, ctx);
 
     // process all the inputs
-    let pandoc = input.evaluate_pdf_input();
+    let pandoc = input.expect("Error unwraping the pdf builder result.").evaluate_pdf_input();
 
     // give it all to pandoc
     pandoc.execute().unwrap();
