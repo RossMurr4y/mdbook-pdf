@@ -31,6 +31,7 @@ pub struct Pdf {
     pub input_extensions: Vec<MarkdownExtension>,
     pub output_extensions: Vec<MarkdownExtension>,
     pub options: Vec<PandocOption>,
+    pub book_root: PathBuf,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -66,20 +67,21 @@ impl PdfBuilder {
     // Applies default values if they are not currently set.
     fn build(&self, content: String, context: RenderContext) -> Result<Pdf, mdbook::errors::Error> {
 
+        // set the source directory 
+        let mut root_dir = PathBuf::from(&context.root);
+
         let mut filename: PathBuf = PathBuf::new();
         filename.push(self.name.clone().unwrap_or_else(|| context.config.book.title.unwrap().to_string()));
         filename.set_extension("pdf");
         Ok(Pdf {
             name: filename,
             engine: PathBuf::from(self.engine.clone().unwrap_or_else(|| "xelatex".to_string())),
-            format: self.format.clone().unwrap_or_else(|| {
-                println!("entered into the font defautl area");
-                Default::default()
-            }),
+            format: self.format.clone().unwrap_or_else(|| Default::default()),
             content: content,
             input_extensions: Vec::new(),
             output_extensions: Vec::new(),
             options: Vec::new(),
+            book_root: root_dir,
         })
     }
 }
@@ -88,6 +90,9 @@ impl Pdf {
     pub fn to_pandoc(mut self) -> Pandoc {
         // process all the inputs
         let mut pandoc = Pandoc::new();
+
+        let mut src_path = self.book_root;
+        src_path.push("src");
 
         // add Commonmark extensions
         self.input_extensions.push(MarkdownExtension::AutoIdentifiers);
@@ -100,20 +105,22 @@ impl Pdf {
         self.input_extensions.push(MarkdownExtension::YamlMetadataBlock);
 
         // add Latex extensions
-        pandoc.set_variable(&"toc", &"");
-        pandoc.set_variable(&"toc-depth", &"2");
+        // tbc
 
         // set the name of the pandoc font option based on engine
         // some engines use a different name for this option.
         let font_var = if self.engine == PathBuf::from("pdflatex") { &"fontfamily" } else { &"mainfont"};
 
         pandoc
+            .set_variable(&"toc", &"")
+            .set_variable(&"toc-depth", &"2")
             .set_input(InputKind::Pipe(self.content))
             .set_input_format(pandoc::InputFormat::Markdown, self.input_extensions)
             .set_output(File(self.name))
             .set_output_format(Latex, self.output_extensions)
             .add_option(PandocOption::PdfEngine(self.engine))
             .set_doc_class(pandoc::DocumentClass::Article)
+            .add_option(PandocOption::ResourcePath(vec!(src_path)))
             .set_variable(font_var, &self.format.font.unwrap());
         pandoc
     }
