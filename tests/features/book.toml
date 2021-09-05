@@ -11,8 +11,8 @@ title = "features-test"
 name = "FeaturesExample"
 engine = "xelatex"      # pdf-engine
 
-#[output.pdf.format]
-#font = ""
+[output.pdf.format]
+font = "Merriweather"
 #font_math = ""
 #font_mono = ""
 #font_sans = ""

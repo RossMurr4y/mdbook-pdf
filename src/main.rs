@@ -12,22 +12,28 @@ use pandoc::{
     Pandoc,
     PandocOption
 };
+use serde::{Deserialize};
+use serde_derive::{Deserialize};
 
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "
+    Vec<MarkdownExtension>: Deserialize<'de>,
+    Vec<PandocOption>: Deserialize<'de>,
+"))]
 pub struct Pdf {
-    pub name: String,
+    pub name: PathBuf,
     pub engine: PathBuf,
     pub format: PdfFormat,
     // Content of the PDF.
     pub content: String,
+    pub input_extensions: Vec<MarkdownExtension>,
+    pub output_extensions: Vec<MarkdownExtension>,
+    pub options: Vec<PandocOption>,
 }
 
-
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct PdfBuilder {
     pub name: Option<String>,
     pub engine: Option<String>,
@@ -49,71 +55,62 @@ impl PdfBuilder {
             Some(input) => {
                 if !input.name.is_none() { self.name = input.name };
                 if !input.engine.is_none() { self.engine = input.engine };
-                if !(Some(PdfFormat::default()) == input.format) { self.format = input.format };
+                if !input.format.is_none() { self.format = input.format };
                 self
             },
             None => self,
         }
     }
 
-    fn with_name(&mut self, name: String) ->  &mut Self {
-        self.name = Some(name);
-        self
-    }
-
-    fn with_engine(&mut self, engine: String) -> &mut Self {
-        self.engine = Some(engine);
-        self
-    }
-
-    fn with_format(&mut self, format: PdfFormat) -> &mut Self {
-        self.format = Some(format);
-        self
-    }
-
     // completes the builder and instantiates the Pdf configuration.
     // Applies default values if they are not currently set.
-    fn build(self, content: String, context: RenderContext) -> Result<Pdf, mdbook::errors::Error> {
+    fn build(&self, content: String, context: RenderContext) -> Result<Pdf, mdbook::errors::Error> {
+
+        let mut filename: PathBuf = PathBuf::new();
+        filename.push(self.name.clone().unwrap_or_else(|| context.config.book.title.unwrap().to_string()));
+        filename.set_extension("pdf");
         Ok(Pdf {
-            name: self.name.as_ref().unwrap_or(&context.config.book.title.unwrap()).to_string(),
-            engine: PathBuf::from(self.engine.as_ref().unwrap_or(&"xelatex".to_string())),
-            format: self.format.unwrap_or(PdfFormat::default()),
+            name: filename,
+            engine: PathBuf::from(self.engine.clone().unwrap_or_else(|| "xelatex".to_string())),
+            format: self.format.clone().unwrap_or_else(|| {
+                println!("entered into the font defautl area");
+                Default::default()
+            }),
             content: content,
+            input_extensions: Vec::new(),
+            output_extensions: Vec::new(),
+            options: Vec::new(),
         })
     }
 }
 
 impl Pdf {
-
-    // processes each of the inputs
-    pub fn evaluate_pdf_input(self) -> Pandoc {
-
-        // Set the output name and extension
-        let mut filename: PathBuf = PathBuf::new();
-        filename.push(self.name);
-        filename.set_extension("pdf".to_string());
-
-        // set the Commonmark extensions
-        let mut input_ext: Vec<MarkdownExtension> = Vec::new();
-
-
-        // set the Latex extensions
-        let mut output_ext: Vec<MarkdownExtension> = Vec::new();
-
-        // construct the call to pandoc
+    pub fn to_pandoc(mut self) -> Pandoc {
+        // process all the inputs
         let mut pandoc = Pandoc::new();
-        pandoc
-            .set_input_format(Commonmark, input_ext)
-            .set_input(InputKind::Pipe(self.content))
-            .set_output(File(filename))
-            .set_output_format(Latex, output_ext)
-            .add_option(PandocOption::PdfEngine(self.engine));
 
+        // add input extensions
+
+        // add output extensions
+
+        // set the name of the pandoc font option based on engine
+        // some engines use a different name for this option.
+        let font_var = if self.engine == PathBuf::from("pdflatex") { &"fontfamily" } else { &"mainfont"};
+
+        pandoc
+            .set_input(InputKind::Pipe(self.content))
+            .set_input_format(Commonmark, self.input_extensions)
+            .set_output(File(self.name))
+            .set_output_format(Latex, self.output_extensions)
+            .add_option(PandocOption::PdfEngine(self.engine))
+            .set_variable(font_var, &self.format.font.unwrap());
         pandoc
     }    
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+
+
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct PdfFormat {
     pub font: Option<String>,
 }
@@ -142,10 +139,10 @@ fn main() {
     // translate our book.toml config into the Pdf struct
     let mut builder  = PdfBuilder::new();
     builder.with_input_context(&ctx);
-    let input = builder.build(content, ctx);
-
-    // process all the inputs
-    let pandoc = input.expect("Error unwraping the pdf builder result.").evaluate_pdf_input();
+    let pandoc = builder
+        .build(content, ctx)
+        .unwrap()
+        .to_pandoc();
 
     // give it all to pandoc
     pandoc.execute().unwrap();
