@@ -89,9 +89,19 @@ impl Pdf {
         // process all the inputs
         let mut pandoc = Pandoc::new();
 
-        // add input extensions
+        // add Commonmark extensions
+        self.input_extensions.push(MarkdownExtension::AutoIdentifiers);
+        self.input_extensions.push(MarkdownExtension::BacktickCodeBlocks);
+        self.input_extensions.push(MarkdownExtension::FancyLists);
+        self.input_extensions.push(MarkdownExtension::PipeTables);
+        self.input_extensions.push(MarkdownExtension::ImplicitFigures);
+        self.input_extensions.push(MarkdownExtension::MultilineTables);
+        self.input_extensions.push(MarkdownExtension::Startnum);
+        self.input_extensions.push(MarkdownExtension::YamlMetadataBlock);
 
-        // add output extensions
+        // add Latex extensions
+        pandoc.set_variable(&"toc", &"");
+        pandoc.set_variable(&"toc-depth", &"2");
 
         // set the name of the pandoc font option based on engine
         // some engines use a different name for this option.
@@ -99,16 +109,15 @@ impl Pdf {
 
         pandoc
             .set_input(InputKind::Pipe(self.content))
-            .set_input_format(Commonmark, self.input_extensions)
+            .set_input_format(pandoc::InputFormat::Markdown, self.input_extensions)
             .set_output(File(self.name))
             .set_output_format(Latex, self.output_extensions)
             .add_option(PandocOption::PdfEngine(self.engine))
+            .set_doc_class(pandoc::DocumentClass::Article)
             .set_variable(font_var, &self.format.font.unwrap());
         pandoc
-    }    
+    }
 }
-
-
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct PdfFormat {
@@ -128,7 +137,16 @@ fn main() {
 
     // gather our content
     let mut content = String::new();
+    content.push_str(format!("# {} \n", ctx.config.book.title.clone().unwrap()).as_str());
     for item in &mut ctx.book.iter() {
+
+        if let BookItem::PartTitle(ref title) = *item {
+            content.push_str(format!(
+                "# {}
+                
+                ", title).as_str());
+        }
+
         if let BookItem::Chapter(ref ch) = *item {
             if let true = &ch.path.is_some() {
                 content.push_str(&ch.content);
